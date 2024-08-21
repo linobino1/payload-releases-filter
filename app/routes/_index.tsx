@@ -66,7 +66,7 @@ export default function Index() {
             return (
               <li key={index}>
                 <Gutter>
-                  <div className={cn("grid gap-4 grid-cols-[120px_1fr]")}>
+                  <div className={cn("grid gap-4 grid-cols-[100px_1fr]")}>
                     <div
                       className="mt-1 text-end"
                       title={format(published_at, "PPpp")}
@@ -76,7 +76,7 @@ export default function Index() {
                     </div>
                     <div
                       className={cn(
-                        "border-l-2 pl-4 border-zinc-200 dark:border-zinc-700 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+                        "border-l-2 pl-4 border-zinc-200  overflow-x-hidden w-full dark:border-zinc-700 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
                         {
                           // "border-gray-300": index % 2 === 1,
                         }
@@ -116,10 +116,10 @@ export default function Index() {
                             />
                           ),
                           ul: (props) => (
-                            <ul {...props} className="list-disc" />
+                            <ul {...props} className="list-disc mb-4" />
                           ),
                           ol: (props) => (
-                            <ol {...props} className="list-decimal" />
+                            <ol {...props} className="list-decimal pl-4 mb-4" />
                           ),
                           li: (props) => <li {...props} className="ml-4" />,
                           code: (props) => {
