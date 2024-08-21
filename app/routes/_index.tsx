@@ -26,7 +26,8 @@ export const loader = async () => {
   }
   const releases = await fetchReleases();
 
-  cache.set("releases", releases);
+  // cache for 3 minutes
+  cache.set("releases", releases, 60 * 3);
 
   return releases;
 };
