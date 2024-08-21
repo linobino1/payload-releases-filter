@@ -1,0 +1,5 @@
+@unocss all;
+
+html {
+  -webkit-font-smoothing: antialiased;
+}
