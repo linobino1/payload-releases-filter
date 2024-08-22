@@ -8,13 +8,13 @@ import {
   useSearchParams,
 } from "@remix-run/react";
 import Markdown from "react-markdown";
-import { codeToHtml } from "shiki";
 import { useEffect, useRef, useState } from "react";
 import { cache } from "~/util/cache";
 import Gutter from "~/components/Gutter";
 import { format } from "date-fns";
 import { cn } from "~/util/cn";
 import { fetchReleases } from "~/util/githubApi";
+import Code from "~/components/Code";
 
 export const meta: MetaFunction = () => {
   return [
@@ -115,26 +115,6 @@ export default function Index() {
   const handleReset = () => {
     setSearchParams(new URLSearchParams());
   };
-
-  // run syntax highlighting on all <code> elements inside the markdown
-  useEffect(() => {
-    const darkMode =
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const theme = darkMode ? "github-dark" : "github-light";
-    containerRef.current?.querySelectorAll("code").forEach(async (code) => {
-      const multiline = code.getAttribute("data-multiline") === "true";
-      await codeToHtml(code.textContent ?? "", {
-        lang: code.getAttribute("data-language") ?? "plaintext",
-        theme: multiline ? theme : "none",
-        structure: "inline",
-      })
-        .then((html) => {
-          code.innerHTML = html;
-        })
-        .catch(console.error);
-    });
-  }, []);
 
   const defaultInputProps = {
     className: "p-2 bg-zinc-50 dark:bg-zinc-800",
@@ -277,7 +257,7 @@ export default function Index() {
                     )}
                   >
                     <div
-                      className="mt-1 text-sm sm:text-end"
+                      className="mt-1 text-sm sm:text-end text-zinc-500"
                       title={format(published_at, "PPpp")}
                     >
                       <div>{format(published_at, "PP")}</div>
@@ -327,25 +307,17 @@ export default function Index() {
                             <ol {...props} className="list-decimal pl-4 mb-4" />
                           ),
                           li: (props) => <li {...props} className="ml-4" />,
-                          code: (props) => {
-                            const multiline = props.children
-                              ?.toString()
-                              .includes("\n");
-                            return (
-                              <code
-                                {...props}
-                                data-language={/language-(\w+)/
-                                  .exec(props.className || "")?.[0]
-                                  .replace("language-", "")}
-                                data-multiline={multiline}
-                                className={cn(
-                                  "text-sm bg-zinc-50 inline-block rounded px-1 font-mono",
-                                  "dark:bg-zinc-800 dark:color-zinc-50",
-                                  { "block px-4 py-4 my-4": multiline }
-                                )}
-                              />
-                            );
-                          },
+                          code: (props) => (
+                            <Code
+                              {...props}
+                              language={/language-(\w+)/
+                                .exec(props.className || "")?.[0]
+                                .replace("language-", "")}
+                              multiline={props.children
+                                ?.toString()
+                                .includes("\n")}
+                            />
+                          ),
                         }}
                       />
                     </div>
