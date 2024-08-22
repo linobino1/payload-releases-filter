@@ -1,8 +1,15 @@
-import type { MetaFunction } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import {
+  Form,
+  Link,
+  useLoaderData,
+  useNavigate,
+  useNavigation,
+  useSearchParams,
+} from "@remix-run/react";
 import Markdown from "react-markdown";
 import { codeToHtml } from "shiki";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cache } from "~/util/cache";
 import Gutter from "~/components/Gutter";
 import { format } from "date-fns";
@@ -20,47 +27,245 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-export const loader = async () => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const searchParams = new URLSearchParams(new URL(request.url).search);
+
+  let releases = [];
   if (cache.has("releases")) {
-    return cache.get("releases");
+    const cached = cache.get("releases");
+    releases = Array.isArray(cached) ? cached : [];
+  } else {
+    releases = await fetchReleases();
+
+    // cache for 3 minutes
+    cache.set("releases", releases, 60 * 3);
   }
-  const releases = await fetchReleases();
 
-  // cache for 3 minutes
-  cache.set("releases", releases, 60 * 3);
+  // filter the releases
+  const version = searchParams.get("version") ?? "3";
+  const sort = searchParams.get("sort") ?? "desc";
+  let from = searchParams.get("from");
+  let to = searchParams.get("to");
+  const breaking = searchParams.get("breaking") === "on";
 
-  return releases;
+  releases = releases.filter((release: any) => {
+    let result = release.name.startsWith(`v${version}`);
+
+    if (from) {
+      result &&= release.id >= from;
+    }
+    if (to) {
+      result &&= release.id <= to;
+    }
+    return result;
+  });
+
+  // get the options for the select elements (they shouldn't be affected by sorting and breaking changes filter)
+  let fromTo = (
+    releases.map((release: any) => ({
+      id: release.id,
+      name: release.name,
+    })) as []
+  ).reverse() as any[];
+
+  // filter breaking changes
+  if (breaking) {
+    releases = releases.filter((release: any) => {
+      return release.body.includes("BREAKING CHANGE");
+    });
+  }
+
+  // sort the releases
+  if (sort === "asc") {
+    releases.reverse();
+  }
+
+  return {
+    releases,
+    fromTo,
+  };
 };
 
 export default function Index() {
-  const data = useLoaderData<typeof loader>();
+  const { releases, fromTo } = useLoaderData<typeof loader>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { state } = useNavigation();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const defaults = {
+    from: fromTo[0]?.id ?? "",
+    to: fromTo[fromTo.length - 1]?.id ?? "",
+    version: "3",
+    sort: "desc",
+    breaking: false,
+  };
+  const [from, setFrom] = useState(defaults.from);
+  const [to, setTo] = useState(defaults.to);
+  const [version, setVersion] = useState(defaults.version);
+  const [sort, setSort] = useState(defaults.sort);
+  const [breaking, setBreaking] = useState(defaults.breaking);
+  useEffect(() => {
+    setFrom(searchParams.get("from") ?? defaults.from);
+    setTo(searchParams.get("to") ?? defaults.to);
+    setVersion(searchParams.get("version") ?? defaults.version);
+    setBreaking(searchParams.get("breaking") === "on" || defaults.breaking);
+  }, [searchParams, fromTo]);
+
+  const handleReset = () => {
+    setSearchParams(new URLSearchParams());
+  };
 
   // run syntax highlighting on all <code> elements inside the markdown
   useEffect(() => {
     const darkMode =
       window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: dark)").matches;
-    containerRef.current?.querySelectorAll("pre code").forEach((code) => {
-      codeToHtml(code.textContent ?? "", {
+    const theme = darkMode ? "github-dark" : "github-light";
+    containerRef.current?.querySelectorAll("code").forEach(async (code) => {
+      const multiline = code.getAttribute("data-multiline") === "true";
+      await codeToHtml(code.textContent ?? "", {
         lang: code.getAttribute("data-language") ?? "plaintext",
-        theme: darkMode ? "dark-plus" : "light-plus",
+        theme: multiline ? theme : "none",
         structure: "inline",
-      }).then((html) => {
-        code.innerHTML = html;
-      });
+      })
+        .then((html) => {
+          code.innerHTML = html;
+        })
+        .catch(console.error);
     });
   }, []);
+
+  const defaultInputProps = {
+    className: "p-2 bg-zinc-50 dark:bg-zinc-800",
+  };
+  const defaultLabelProps = {
+    className: "text-sm flex gap-2 items-center",
+  };
 
   return (
     <>
       <Gutter>
         <h1 className="my-8 text-3xl font-bold">PayloadCMS releases filter</h1>
+        <Form
+          method="get"
+          className={cn("flex gap-4 flex-wrap my-4 transition-opacity", {
+            "opacity-70": state !== "idle",
+          })}
+          onChange={(e) => {
+            e.currentTarget.requestSubmit();
+          }}
+        >
+          <label {...defaultLabelProps}>
+            version
+            <select
+              {...defaultInputProps}
+              name="version"
+              value={version}
+              onChange={(e) => {
+                // let's start from the top when changing the version
+                e.stopPropagation();
+                navigate(`?version=${e.target.value}`);
+              }}
+            >
+              <option value="3">v3.0.0 (beta)</option>
+              <option value="2">v2.x</option>
+            </select>
+          </label>
+          <div className="flex gap-4">
+            <label {...defaultLabelProps}>
+              from
+              <select
+                {...defaultInputProps}
+                name="from"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              >
+                {fromTo.length ? (
+                  fromTo.map((release: any) => (
+                    <option key={release.id} value={release.id}>
+                      {release.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No releases</option>
+                )}
+              </select>
+            </label>
+            <label {...defaultLabelProps}>
+              to
+              <select
+                {...defaultInputProps}
+                name="to"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+              >
+                {fromTo.length ? (
+                  fromTo.map((release: any) => (
+                    <option key={release.id} value={release.id}>
+                      {release.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No releases</option>
+                )}
+              </select>
+            </label>
+          </div>
+          <div className="flex gap-4">
+            <label {...defaultLabelProps}>
+              sort
+              <select
+                {...defaultInputProps}
+                name="sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+              >
+                <option value="desc">Newest first</option>
+                <option value="asc">Oldest first</option>
+              </select>
+            </label>
+            <label
+              {...defaultLabelProps}
+              title={
+                'will filter the releases by the keyword "BREAKING CHANGES"'
+              }
+            >
+              breaking changes only
+              <input
+                {...defaultInputProps}
+                type="checkbox"
+                name="breaking"
+                checked={breaking}
+                onChange={(e) => setBreaking(e.target.checked)}
+              />
+            </label>
+          </div>
+          <div className="basis-full flex gap-4 items-center">
+            <button
+              type="button"
+              onClick={handleReset}
+              className="underline text-blue-500 bg-transparent text-sm"
+            >
+              reset
+            </button>
+            <div className="text-xs text-gray-500">
+              {state === "idle" ? `${releases.length} releases` : "loading..."}
+            </div>
+          </div>
+        </Form>
       </Gutter>
       <div ref={containerRef}>
         {/* <pre className="text-xs">{JSON.stringify(data, null, 2)}</pre> */}
         <ul className="space-y-8">
-          {data.map((release: any, index: number) => {
+          {!releases.length && (
+            <li>
+              <Gutter>
+                <div className="text-center">No releases found</div>
+              </Gutter>
+            </li>
+          )}
+          {releases.map((release: any, index: number) => {
             const { body, published_at, url, id } = release;
 
             return (
@@ -71,19 +276,15 @@ export default function Index() {
                       className="mt-1 text-end"
                       title={format(published_at, "PPpp")}
                     >
-                      {/* <Date iso={release.published_at} /> */}
                       <div>{format(published_at, "PP")}</div>
                     </div>
                     <div
                       className={cn(
-                        "border-l-2 pl-4 border-zinc-200  overflow-x-hidden w-full dark:border-zinc-700 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-                        {
-                          // "border-gray-300": index % 2 === 1,
-                        }
+                        "border-l-2 pl-4 border-zinc-200  overflow-x-hidden w-full dark:border-zinc-700 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                       )}
                     >
                       <Markdown
-                        children={release.body}
+                        children={body}
                         components={{
                           p: (props) => <p {...props} className="mb-2" />,
                           h1: (props) => (
@@ -132,6 +333,7 @@ export default function Index() {
                                 data-language={/language-(\w+)/
                                   .exec(props.className || "")?.[0]
                                   .replace("language-", "")}
+                                data-multiline={multiline}
                                 className={cn(
                                   "text-sm bg-zinc-50 inline-block rounded px-1 font-mono",
                                   "dark:bg-zinc-800 dark:color-zinc-50",
@@ -150,6 +352,13 @@ export default function Index() {
           })}
         </ul>
       </div>
+      <footer className="mt-8 mb-8 text-xs text-gray-500">
+        <Gutter>
+          <Link to={"https://github.com/linobino1/payload-releases-filter"}>
+            repo of this page
+          </Link>
+        </Gutter>
+      </footer>
     </>
   );
 }
