@@ -271,9 +271,13 @@ export default function Index() {
             return (
               <li key={index}>
                 <Gutter>
-                  <div className={cn("grid gap-4 grid-cols-[100px_1fr]")}>
+                  <div
+                    className={cn(
+                      "grid gap-4 grid-cols-1 sm:grid-cols-[100px_1fr]"
+                    )}
+                  >
                     <div
-                      className="mt-1 text-end"
+                      className="mt-1 text-sm sm:text-end"
                       title={format(published_at, "PPpp")}
                     >
                       <div>{format(published_at, "PP")}</div>
