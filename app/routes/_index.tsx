@@ -48,17 +48,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   let to = searchParams.get("to");
   const breaking = searchParams.get("breaking") === "on";
 
-  releases = releases.filter((release: any) => {
-    let result = release.name.startsWith(`v${version}`);
-
-    if (from) {
-      result &&= release.id >= from;
-    }
-    if (to) {
-      result &&= release.id <= to;
-    }
-    return result;
-  });
+  // filter by major version
+  releases = releases.filter((release: any) =>
+    release.name.startsWith(`v${version}`)
+  );
 
   // get the options for the select elements (they shouldn't be affected by sorting and breaking changes filter)
   let fromTo = (
@@ -68,12 +61,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     })) as []
   ).reverse() as any[];
 
-  // filter breaking changes
-  if (breaking) {
-    releases = releases.filter((release: any) => {
-      return release.body.includes("BREAKING CHANGE");
-    });
-  }
+  // apply filters (from, to, breaking changes)
+  releases = releases.filter((release: any) => {
+    let result = true;
+    if (breaking) {
+      result &&= release.body.includes("BREAKING CHANGE");
+    }
+    if (from) {
+      result &&= release.id >= from;
+    }
+    if (to) {
+      result &&= release.id <= to;
+    }
+    return result;
+  });
 
   // sort the releases
   if (sort === "asc") {
