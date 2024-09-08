@@ -57,7 +57,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   let fromTo = (
     releases.map((release: any) => ({
       id: release.id,
-      name: release.name,
+      tag_name: release.tag_name,
     })) as []
   ).reverse() as any[];
 
@@ -165,7 +165,7 @@ export default function Index() {
                 {fromTo.length ? (
                   fromTo.map((release: any) => (
                     <option key={release.id} value={release.id}>
-                      {release.name}
+                      {release.tag_name}
                     </option>
                   ))
                 ) : (
@@ -184,7 +184,7 @@ export default function Index() {
                 {fromTo.length ? (
                   fromTo.map((release: any) => (
                     <option key={release.id} value={release.id}>
-                      {release.name}
+                      {release.tag_name}
                     </option>
                   ))
                 ) : (
