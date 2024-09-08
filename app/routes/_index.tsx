@@ -50,7 +50,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   // filter by major version
   releases = releases.filter((release: any) =>
-    release.name.startsWith(`v${version}`)
+    release.tag_name.match(new RegExp(`^v?${version}`))
   );
 
   // get the options for the select elements (they shouldn't be affected by sorting and breaking changes filter)
