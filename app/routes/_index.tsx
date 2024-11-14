@@ -260,8 +260,9 @@ export default function Index() {
                     <div
                       className="mt-1 text-sm sm:text-end text-zinc-500"
                       title={format(published_at, "PPpp")}
+                      suppressHydrationWarning
                     >
-                      <div>{format(published_at, "PP")}</div>
+                      {format(published_at, "PP")}
                     </div>
                     <div
                       className={cn(
