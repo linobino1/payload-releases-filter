@@ -35,7 +35,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const cached = cache.get("releases");
     releases = Array.isArray(cached) ? cached : [];
   } else {
-    releases = await fetchReleases();
+    const [page1, page2, page3] = await Promise.all([
+      fetchReleases({ page: 1 }),
+      fetchReleases({ page: 2 }),
+      fetchReleases({ page: 3 }),
+    ]);
+    releases = [...page1, ...page2, ...page3];
 
     // cache for 3 minutes
     cache.set("releases", releases, 60 * 3);

@@ -44,10 +44,12 @@ export const endpoint = "https://api.github.com";
   },
  * ]
  */
-export const fetchReleases = async (page: number = 1) => {
-  console.log("fetchReleases");
+export const fetchReleases = async ({ page }: { page?: number }) => {
+  console.log("fetchReleases page", page);
   const res = await fetch(
-    `${endpoint}/repos/payloadcms/payload/releases?page=${page}&per_page=200`
+    `${endpoint}/repos/payloadcms/payload/releases?page=${
+      page ?? 1
+    }&per_page=100` // 100 is the max per_page
   );
 
   if (!res.ok) {
